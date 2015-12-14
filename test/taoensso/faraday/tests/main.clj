@@ -581,6 +581,139 @@
            (far/get-item *client-opts* ttable {:id  1})
            (far/get-item *client-opts* ttable {:id -1})])))))
 
+
+
+
+;;; Test global secondary index creation
+(defn get-temp-table []
+  (keyword (str "temp_table_" (.getTime (java.util.Date.)))))
+
+(defmacro do-with-temp-table
+  [bindings & cmds]
+  (concat
+    (list 'let (into ['temp-table (get-temp-table)] bindings))
+    cmds
+    ['(far/delete-table *client-opts* temp-table)]))
+
+;; Basic table creation
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:throughput   {:read 1 :write 1}
+                              :block?       true})]
+  (expect temp-table (:name created))
+  (expect nil (:lsindexes created))
+  (expect nil (:gsindexes created))
+  (expect {:artist     {:key-type :hash, :data-type :s}} (:prim-keys created)))
+
+;; Table creation with range key
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:range-keydef [:song-title :s]
+                              :throughput   {:read 1 :write 1}
+                              :block?       true})]
+  (expect temp-table (:name created))
+  (expect nil (:lsindexes created))
+  (expect nil (:gsindexes created))
+  (expect {:artist     {:key-type :hash, :data-type :s},
+           :song-title {:key-type :range, :data-type :s}} (:prim-keys created)))
+
+
+;; Test creating a global secondary index, without a sort key, :projection defaults to :all
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:gsindexes  [{:name        "genre-index"
+                                            :hash-keydef [:genre :s]
+                                            :throughput  {:read 1 :write 1}}]
+                              :throughput {:read 1 :write 1}
+                              :block?     true})]
+  (expect temp-table (:name created))
+  (expect nil (:lsindexes created))
+  (expect [{:name       :genre-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :genre :type :hash}]
+            :projection {:projection-type    "ALL"
+                         :non-key-attributes nil}
+            :throughput {:read          1 :write 1 :last-decrease nil
+                         :last-increase nil :num-decreases-today nil}}]
+          (:gsindexes created))
+  (expect {:artist {:key-type :hash :data-type :s}
+           :genre  {:data-type :s}} (:prim-keys created)))
+
+;; Test creating a global secondary index and sort key, projection defaults to :all
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:gsindexes  [{:name         "genre-index"
+                                            :hash-keydef  [:genre :s]
+                                            :range-keydef [:year :n]
+                                            :throughput   {:read 1 :write 1}}]
+                              :throughput {:read 1 :write 1}
+                              :block?     true})]
+  (expect temp-table (:name created))
+  (expect nil (:lsindexes created))
+  (expect [{:name       :genre-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :genre :type :hash}
+                         {:name :year :type :range}]
+            :projection {:projection-type    "ALL"
+                         :non-key-attributes nil}
+            :throughput {:read          1 :write 1 :last-decrease nil
+                         :last-increase nil :num-decreases-today nil}}]
+          (:gsindexes created))
+  (expect {:artist {:key-type :hash :data-type :s}
+           :genre  {:data-type :s}
+           :year   {:data-type :n}} (:prim-keys created)))
+
+
+;; Test creating multiple global secondary indexes, verify :projection defaults to :all
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:gsindexes  [{:name        "genre-index"
+                                            :hash-keydef [:genre :s]
+                                            :throughput  {:read 1 :write 1}}
+                                           {:name        "label-index"
+                                            :hash-keydef [:label :s]
+                                            :throughput  {:read 2 :write 3}
+                                            :projection  :keys-only}
+                                           ]
+                              :throughput {:read 1 :write 1}
+                              :block?     true})]
+  (expect temp-table (:name created))
+  (expect nil (:lsindexes created))
+  (expect [{:name       :label-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :label :type :hash}]
+            :projection {:projection-type "KEYS_ONLY" :non-key-attributes nil}
+            :throughput
+                        {:read                2
+                         :write               3
+                         :last-decrease       nil
+                         :last-increase       nil
+                         :num-decreases-today nil}}
+           {:name       :genre-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :genre :type :hash}]
+            :projection {:projection-type "ALL" :non-key-attributes nil}
+            :throughput
+                        {:read                1
+                         :write               1
+                         :last-decrease       nil
+                         :last-increase       nil
+                         :num-decreases-today nil}}]
+          (:gsindexes created))
+  (expect {:artist {:key-type :hash :data-type :s}
+           :genre  {:data-type :s}
+           :label  {:data-type :s}} (:prim-keys created)))
+
+
 ;;; Test `list-tables` lazy sequence
 ;; Creates a _large_ number of tables so only run locally
 (when-let [endpoint (:endpoint *client-opts*)]
