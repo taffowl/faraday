@@ -815,17 +815,26 @@
                              [:artist :s]
                              {:throughput {:read 1 :write 1}
                               :block?     true})
-   updated @(far/update-table *client-opts* temp-table {:throughput {:read 3 :write 4}})
+   updated @(far/update-table *client-opts* temp-table {:throughput {:read 16 :write 16}})
+   again   @(far/update-table *client-opts* temp-table {:throughput {:read 256 :write 256}})
    ]
   ; Both table descriptions are the same other than the throughput
   (expect (dissoc created :throughput)
           (dissoc updated :throughput))
+  (expect (dissoc updated :throughput)
+          (dissoc again :throughput))
   ; Throughput was updated
   (expect
-    {:read 3 :write 4}
+    {:read 16 :write 16}
     (-> updated
         :throughput
-        (select-keys #{:read :write}))))
+        (select-keys #{:read :write})))
+  (expect
+    {:read 256 :write 256}
+    (-> again
+        :throughput
+        (select-keys #{:read :write})))
+  )
 
 
 ;;; Test `list-tables` lazy sequence

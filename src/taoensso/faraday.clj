@@ -570,23 +570,6 @@
   (when-not (describe-table client-opts table-name)
     (create-table client-opts table-name hash-keydef opts)))
 
-(defn throughput-steps
-  "Implementation detail.
-  Dec by any amount, inc by <= 2x current amount, Ref. http://goo.gl/Bj9TC.
-  x - start, x' - current, x* - goal."
-  [[r w] [r* w*]]
-  (let [step (fn [x* x'] (if (< x* x') x* (min x* (* 2 x'))))]
-    (loop [steps [] [r' w'] [r w]]
-      (if (= [r' w'] [r* w*])
-        steps
-        (let [[r' w' :as this-step] [(step r* r') (step w* w')]]
-          (recur (conj steps this-step) this-step))))))
-
-(comment (throughput-steps [1 1] [1 1])
-         (throughput-steps [1 1] [12 12])
-         (throughput-steps [3 3] [27 27])
-         (throughput-steps [17 8] [3 22])
-         (throughput-steps [1 1] [300 300]))
 
 (defn update-table-request "Implementation detail."
   [table throughput]
@@ -595,11 +578,9 @@
     (.setProvisionedThroughput (provisioned-throughput throughput))))
 
 (defn update-table
-  "Updates a table. Allows automatic multi-step adjustments to conform to
-  update limits, Ref. http://goo.gl/Bj9TC.
-
-  Returns a promise to which the final resulting table description will be
-  delivered. Deref this promise to block until update (all steps) complete.
+  "Updates a table. Returns a promise to which the final resulting table
+  description will be delivered. Deref this promise to block until update
+  has completed.
 
   Possible values to update:
 
@@ -611,28 +592,23 @@
         {read* :read write* :write} throughput*
         {:keys [status throughput]} (describe-table client-opts table)
         {:keys [read write num-decreases-today]} throughput
-        read*  (or read*  read)
-        write* (or write* write)
-        {max-reqs :max} span-reqs
-        decreasing? (or (< read* read) (< write* write))
-        steps  (throughput-steps [read write] [read* write*])
-        nsteps (count steps)]
+        read*       (or read* read)
+        write*      (or write* write)
+        decreasing? (or (< read* read) (< write* write))]
     (cond (not= status :active)
           (throw (Exception. (str "Invalid table status: " status)))
-          (and decreasing? (>= num-decreases-today 4)) ; API limit
-          (throw (Exception. (str "Max 4 decreases per 24hr period")))
-          (> nsteps max-reqs)
-          (throw (Exception. (str "`max-reqs` too low, needs reqs: " nsteps)))
+          (and decreasing? (>= num-decreases-today 4))
+          (throw (Exception. (str "API Limit - Max 4 decreases per 24hr period")))
           :else
-          (letfn [(run1 [[r' w']]
+          (letfn [(async-update []
                     (as-map
-                     (.updateTable (db-client client-opts)
-                       (update-table-request table {:read r' :write w'})))
+                      (.updateTable (db-client client-opts)
+                                    (update-table-request table {:read read* :write write*})))
                     ;; Returns _new_ descr when ready:
                     @(table-status-watch client-opts table :updating))]
 
             (let [p (promise)]
-              (future (deliver p (peek (mapv run1 steps))))
+              (future (deliver p (async-update)))
               p)))))
 
 (comment
