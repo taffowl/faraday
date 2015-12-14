@@ -714,6 +714,100 @@
            :label  {:data-type :s}} (:prim-keys created)))
 
 
+;;; Test creating local secondary indexes on a table
+
+;; Test creating a local secondary index and sort key, projection defaults to :all
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:range-keydef [:song-title :s]          ; Need a range key for it to accept a local secondary index
+                              :lsindexes    [{:name         "year-index"
+                                              :range-keydef [:year :n]}]
+                              :throughput   {:read 1 :write 1}
+                              :block?       true})]
+  (expect nil (:gsindexes created))
+  (expect [{:name       :year-index
+            :size       0
+            :item-count 0
+            :key-schema [{:type :hash :name :artist} {:name :year :type :range}]
+            :projection {:projection-type    "ALL"
+                         :non-key-attributes nil}}]
+          (:lsindexes created))
+  (expect {:artist     {:key-type :hash :data-type :s}
+           :song-title {:key-type :range, :data-type :s}
+           :year       {:data-type :n}}
+          (:prim-keys created)))
+
+;; hash-keydef and throughput are ignored on local secondary index
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:range-keydef [:song-title :s]          ; Need a range key for it to accept a local secondary index
+                              :lsindexes    [{:name         "year-index"
+                                              :hash-keydef  [:genre :s]
+                                              :range-keydef [:year :n]
+                                              :throughput   {:read 1 :write 1}}]
+                              :throughput   {:read 1 :write 1}
+                              :block?       true})]
+  (expect [{:name       :year-index
+            :size       0
+            :item-count 0
+            :key-schema [{:type :hash :name :artist} {:name :year :type :range}]
+            :projection {:projection-type    "ALL"
+                         :non-key-attributes nil}}]
+          (:lsindexes created))
+  )
+
+;; We can combine local secondary and global secondary indexes
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:range-keydef [:song-title :s]          ; Need a range key for it to accept a local secondary index
+                              :gsindexes    [{:name        "genre-index"
+                                              :hash-keydef [:genre :s]
+                                              :throughput  {:read 1 :write 2}}
+                                             {:name        "label-index"
+                                              :hash-keydef [:label :s]
+                                              :throughput  {:read 3 :write 4}
+                                              :projection  :keys-only}
+                                             ]
+                              :lsindexes    [{:name         "year-index"
+                                              :range-keydef [:year :n]}]
+                              :throughput   {:read 1 :write 1}
+                              :block?       true})]
+  (expect [{:name       :label-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :label :type :hash}]
+            :projection {:projection-type "KEYS_ONLY" :non-key-attributes nil}
+            :throughput
+                        {:read                3
+                         :write               4
+                         :last-decrease       nil
+                         :last-increase       nil
+                         :num-decreases-today nil}}
+           {:name       :genre-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :genre :type :hash}]
+            :projection {:projection-type "ALL" :non-key-attributes nil}
+            :throughput
+                        {:read                1
+                         :write               2
+                         :last-decrease       nil
+                         :last-increase       nil
+                         :num-decreases-today nil}}]
+          (:gsindexes created))
+  (expect [{:name       :year-index
+            :size       0
+            :item-count 0
+            :key-schema [{:type :hash :name :artist} {:name :year :type :range}]
+            :projection {:projection-type    "ALL"
+                         :non-key-attributes nil}}]
+          (:lsindexes created))
+  )
+
+
 ;;; Test `list-tables` lazy sequence
 ;; Creates a _large_ number of tables so only run locally
 (when-let [endpoint (:endpoint *client-opts*)]
