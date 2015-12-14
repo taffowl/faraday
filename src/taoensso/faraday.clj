@@ -599,9 +599,14 @@
   update limits, Ref. http://goo.gl/Bj9TC.
 
   Returns a promise to which the final resulting table description will be
-  delivered. Deref this promise to block until update (all steps) complete."
-  [client-opts table throughput & [{:keys [span-reqs]
-                                    :or   {span-reqs {:max 5}}}]]
+  delivered. Deref this promise to block until update (all steps) complete.
+
+  Possible values to update:
+
+  :throughput   - {:read <units> :write <units>}\n\n
+  "
+  [client-opts table {:keys [throughput]} & [{:keys [span-reqs]
+                                              :or   {span-reqs {:max 5}}}]]
   (let [throughput* throughput
         {read* :read write* :write} throughput*
         {:keys [status throughput]} (describe-table client-opts table)

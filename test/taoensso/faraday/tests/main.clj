@@ -804,8 +804,28 @@
             :key-schema [{:type :hash :name :artist} {:name :year :type :range}]
             :projection {:projection-type    "ALL"
                          :non-key-attributes nil}}]
-          (:lsindexes created))
-  )
+          (:lsindexes created)))
+
+
+;;; Test `update-table`
+
+;; Test changing throughput
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:throughput {:read 1 :write 1}
+                              :block?     true})
+   updated @(far/update-table *client-opts* temp-table {:throughput {:read 3 :write 4}})
+   ]
+  ; Both table descriptions are the same other than the throughput
+  (expect (dissoc created :throughput)
+          (dissoc updated :throughput))
+  ; Throughput was updated
+  (expect
+    {:read 3 :write 4}
+    (-> updated
+        :throughput
+        (select-keys #{:read :write}))))
 
 
 ;;; Test `list-tables` lazy sequence
@@ -835,7 +855,7 @@
 
       (expect
        {:read 2 :write 2}
-       (-> (far/update-table *client-opts* update-t {:read 2 :write 2})
+       (-> (far/update-table *client-opts* update-t {:throughput {:read 2 :write 2}})
            deref
            :throughput
            (select-keys #{:read :write}))))))
