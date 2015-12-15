@@ -809,7 +809,7 @@
 
 ;;; Test `update-table`
 
-;; Test changing throughput
+;; Test increasing throughput
 (do-with-temp-table
   [created (far/create-table *client-opts* temp-table
                              [:artist :s]
@@ -831,6 +831,33 @@
         (select-keys #{:read :write})))
   (expect
     {:read 256 :write 256}
+    (-> again
+        :throughput
+        (select-keys #{:read :write})))
+  )
+
+;; Test decreasing throughput
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:throughput {:read 256 :write 256}
+                              :block?     true})
+   updated @(far/update-table *client-opts* temp-table {:throughput {:read 16 :write 16}})
+   again   @(far/update-table *client-opts* temp-table {:throughput {:read 1 :write 1}})
+   ]
+  ; Both table descriptions are the same other than the throughput
+  (expect (dissoc created :throughput)
+          (dissoc updated :throughput))
+  (expect (dissoc updated :throughput)
+          (dissoc again :throughput))
+  ; Throughput was updated
+  (expect
+    {:read 16 :write 16}
+    (-> updated
+        :throughput
+        (select-keys #{:read :write})))
+  (expect
+    {:read 1 :write 1}
     (-> again
         :throughput
         (select-keys #{:read :write})))
