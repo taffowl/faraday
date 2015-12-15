@@ -415,9 +415,11 @@
        (catch ResourceNotFoundException _ nil)))
 
 (defn table-status-watch
-  "Creates a future to poll for a change to table's status, and returns a
-  promise to which the table's new description will be delivered. Deref this
-  promise to block until table status changes."
+  "Creates a future to poll for a change to table's status from the one
+  passed as a parameter, and returns a promise to which the table's new
+  description will be delivered.
+
+  Deref this promise to block until table status changes."
   [client-opts table status & [{:keys [poll-ms]
                                 :or   {poll-ms 5000}}]]
   (assert (#{:creating :updating :deleting :active} (utils/un-enum status))
