@@ -890,6 +890,33 @@
   (expect created updated))
 
 
+;; Test global secondary index creation
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:throughput {:read 1 :write 1}
+                              :block?     true})
+   updated @(far/update-table *client-opts* temp-table
+                              {:gsindexes {:operation   :create
+                                           :name        "genre-index"
+                                           :hash-keydef [:genre :s]
+                                           :throughput  {:read 4 :write 2}
+                                           }})]
+
+  ;; Tables are the same other than the global indexes
+  (expect (dissoc created :gsindexes :prim-keys)
+          (dissoc updated :gsindexes :prim-keys))
+  ;; We have a new index
+  (expect [{:name       :genre-index
+            :size       nil
+            :item-count nil
+            :key-schema [{:name :genre :type :hash}]
+            :projection {:projection-type "ALL" :non-key-attributes nil}
+            :throughput {:read 4 :write 2 :last-decrease nil :last-increase nil :num-decreases-today nil}}]
+          (:gsindexes updated))
+  )
+
+
 ;;; Test `list-tables` lazy sequence
 ;; Creates a _large_ number of tables so only run locally
 (when-let [endpoint (:endpoint *client-opts*)]

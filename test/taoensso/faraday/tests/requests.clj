@@ -9,6 +9,7 @@
             KeySchemaElement
             LocalSecondaryIndex
             GlobalSecondaryIndex
+            GlobalSecondaryIndexUpdate
             Projection
             ProjectionType
             UpdateTableRequest
@@ -101,6 +102,33 @@
  (.getProvisionedThroughput
   ^UpdateTableRequest
   (update-table-request :update-table {:throughput {:read 15 :write 7}})))
+
+(let [req ^UpdateTableRequest
+          (update-table-request
+            :update-table
+            {:gsindexes {:name         "global-secondary"
+                         :operation    :create
+                         :hash-keydef  [:gs-hash-keydef :n]
+                         :range-keydef [:gs-range-keydef :n]
+                         :projection   :keys-only
+                         :throughput   {:read 10 :write 2}}})]
+  (expect "update-table" (.getTableName req))
+
+  (let [[^GlobalSecondaryIndexUpdate gsindex & rest] (.getGlobalSecondaryIndexUpdates req)
+        create-action (.getCreate gsindex)]
+    (expect nil? rest)
+    (expect "global-secondary" (.getIndexName create-action))
+    (expect
+      (doto (Projection.)
+        (.setProjectionType ProjectionType/KEYS_ONLY))
+      (.getProjection create-action))
+    (expect
+      #{(KeySchemaElement. "gs-range-keydef" KeyType/RANGE)
+        (KeySchemaElement. "gs-hash-keydef" KeyType/HASH)}
+      (into #{} (.getKeySchema create-action)))
+    (expect
+      (ProvisionedThroughput. 10 2)
+      (.getProvisionedThroughput create-action))))
 
 (expect
  "get-item"

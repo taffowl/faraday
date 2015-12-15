@@ -26,6 +26,7 @@
              Condition
              ConsumedCapacity
              ComparisonOperator
+             CreateGlobalSecondaryIndexAction
              CreateTableRequest
              CreateTableResult
              DeleteItemRequest
@@ -47,6 +48,7 @@
              LocalSecondaryIndexDescription
              GlobalSecondaryIndex
              GlobalSecondaryIndexDescription
+             GlobalSecondaryIndexUpdate
              Projection
              ProvisionedThroughput
              ProvisionedThroughputDescription
@@ -573,12 +575,56 @@
     (create-table client-opts table-name hash-keydef opts)))
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; update-table functions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn global-2nd-index-updates
+  "Implementation detail.
+  {:operation _ :name _ :hash-keydef _ :range-keydef _ :projection _ :throughput _}
+  index -> GlobalSecondaryIndexUpdate}
+  "
+  [index]
+  (condp = (:operation index)
+    :create
+    (letfn [(create-fn
+              [{index-name :name
+                :keys      [hash-keydef range-keydef throughput projection]
+                :or        {projection :all}
+                :as        index}]
+              (assert (and index-name hash-keydef projection throughput)
+                      (str "Malformed global secondary index (GSI): " index))
+              (doto (GlobalSecondaryIndexUpdate.)
+                (.setCreate
+                  (doto
+                    (CreateGlobalSecondaryIndexAction.)
+                    (.setIndexName (name index-name))
+                    (.setKeySchema (key-schema hash-keydef range-keydef))
+                    (.setProjection
+                      (let [pr    (Projection.)
+                            ptype (if (coll?* projection) :include projection)]
+                        (.setProjectionType pr (utils/enum ptype))
+                        (when (= ptype :include)
+                          (.setNonKeyAttributes pr (mapv name projection)))
+                        pr))
+                    (.setProvisionedThroughput (provisioned-throughput throughput))
+                    ))))]
+      (create-fn index))
+
+    nil
+    )
+  )
+
 (defn update-table-request "Implementation detail."
-  [table {:keys [throughput]}]
-  (doto-cond
-    [_ (UpdateTableRequest.)]
-    :always (.setTableName (name table))
-    throughput (.setProvisionedThroughput (provisioned-throughput throughput))))
+  [table {:keys [throughput gsindexes]}]
+  (let [attr-defs (keydefs nil nil nil [gsindexes])]
+    (doto-cond
+      [_ (UpdateTableRequest.)]
+      :always (.setTableName (name table))
+      throughput (.setProvisionedThroughput (provisioned-throughput throughput))
+      gsindexes (.setGlobalSecondaryIndexUpdates [(global-2nd-index-updates gsindexes)])
+      (not-empty attr-defs) (.setAttributeDefinitions attr-defs)
+      )))
 
 
 (defn- val-update-throughput
@@ -603,8 +649,7 @@
       (dissoc params :throughput)
       ;; No change
       :else params
-      ))
-  )
+      )) )
 
 (defn update-table
   "Updates a table. Returns a promise to which the final resulting table
@@ -637,7 +682,6 @@
                         ;; Returns _new_ descr when ready:
                         @(table-status-watch client-opts table :updating))))
                     ]
-
             (let [p (promise)]
               (future (deliver p (async-update)))
               p)))))
