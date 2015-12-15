@@ -12,10 +12,10 @@
 
   :dependencies
   [[org.clojure/clojure "1.5.1"]
-   [com.taoensso/encore "2.26.1"]
+   [com.taoensso/encore "2.29.1"]
    [com.taoensso/nippy  "2.10.0"]
    [joda-time           "2.9.1"] ; For exclusion, see Github #27
-   [com.amazonaws/aws-java-sdk-dynamodb "1.9.39" ; TODO 1.10.x
+   [com.amazonaws/aws-java-sdk-dynamodb "1.10.40"
     :exclusions [joda-time]]]
 
   :profiles
