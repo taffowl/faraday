@@ -863,6 +863,18 @@
         (select-keys #{:read :write})))
   )
 
+;; Sending the same throughput as what the table has should have no effect
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:throughput {:read 1 :write 1}
+                              :block?     true})
+   updated @(far/update-table *client-opts* temp-table {:throughput {:read 1 :write 1}})
+   ]
+  ; Both table descriptions are the same
+  (expect created updated)
+  )
+
 
 ;;; Test `list-tables` lazy sequence
 ;; Creates a _large_ number of tables so only run locally

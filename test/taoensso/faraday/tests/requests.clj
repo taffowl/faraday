@@ -94,13 +94,13 @@
  "update-table"
  (.getTableName
   ^UpdateTableRequest
-  (update-table-request :update-table {:read 1 :write 1})))
+  (update-table-request :update-table {:throughput {:read 1 :write 1}})))
 
 (expect
  (ProvisionedThroughput. 15 7)
  (.getProvisionedThroughput
   ^UpdateTableRequest
-  (update-table-request :update-table {:read 15 :write 7})))
+  (update-table-request :update-table {:throughput {:read 15 :write 7}})))
 
 (expect
  "get-item"

@@ -574,10 +574,37 @@
 
 
 (defn update-table-request "Implementation detail."
-  [table throughput]
-  (doto (UpdateTableRequest.)
-    (.setTableName (name table))
-    (.setProvisionedThroughput (provisioned-throughput throughput))))
+  [table {:keys [throughput]}]
+  (doto-cond
+    [_ (UpdateTableRequest.)]
+    :always (.setTableName (name table))
+    throughput (.setProvisionedThroughput (provisioned-throughput throughput))))
+
+
+(defn- val-update-throughput
+  "Validates a throughput update against the current table description. It will
+  return the same dictionary if all is well, or dissociate the throughput update
+  if it's requesting that we set the same values as the table currently has
+  (see issue #79)"
+  [table-desc {:keys [throughput] :as params}]
+  params
+  (let [{read* :read write* :write} throughput
+        current-throughput (:throughput table-desc)
+        {:keys [read write num-decreases-today]} current-throughput
+        read*              (or read* read)
+        write*             (or write* write)
+        decreasing?        (or (< read* read) (< write* write))]
+    (cond
+      ;; Hard API limit
+      (and decreasing? (>= num-decreases-today 4))
+      (throw (Exception. (str "API Limit - Max 4 decreases per 24hr period")))
+      ;; Don't send an update request for the same throughput values
+      (= throughput (select-keys current-throughput [:read :write]))
+      (dissoc params :throughput)
+      ;; No change
+      :else params
+      ))
+  )
 
 (defn update-table
   "Updates a table. Returns a promise to which the final resulting table
@@ -586,28 +613,30 @@
 
   Possible values to update:
 
-  :throughput   - {:read <units> :write <units>}\n\n
+  :throughput   - {:read <units> :write <units>}
   "
-  [client-opts table {:keys [throughput]} & [{:keys [span-reqs]
-                                              :or   {span-reqs {:max 5}}}]]
-  (let [throughput* throughput
-        {read* :read write* :write} throughput*
-        {:keys [status throughput]} (describe-table client-opts table)
-        {:keys [read write num-decreases-today]} throughput
-        read*       (or read* read)
-        write*      (or write* write)
-        decreasing? (or (< read* read) (< write* write))]
-    (cond (not= status :active)
+  [client-opts table update-params & [{:keys [span-reqs]
+                                       :or   {span-reqs {:max 5}}}]]
+  (let [table-desc (describe-table client-opts table)
+        status     (:status table-desc)
+        val-params (->> update-params
+                        (val-update-throughput table-desc))]
+    (cond (not= :active status)
           (throw (Exception. (str "Invalid table status: " status)))
-          (and decreasing? (>= num-decreases-today 4))
-          (throw (Exception. (str "API Limit - Max 4 decreases per 24hr period")))
           :else
           (letfn [(async-update []
-                    (as-map
-                      (.updateTable (db-client client-opts)
-                                    (update-table-request table {:read read* :write write*})))
-                    ;; Returns _new_ descr when ready:
-                    @(table-status-watch client-opts table :updating))]
+                    ;; If we are not receiving any actual update requests, or
+                    ;; they were all cleared out by validation, simply return
+                    ;; the same table description
+                    (if (empty? val-params)
+                      table-desc
+                      (do
+                        (.updateTable
+                          (db-client client-opts)
+                          (update-table-request table val-params))
+                        ;; Returns _new_ descr when ready:
+                        @(table-status-watch client-opts table :updating))))
+                    ]
 
             (let [p (promise)]
               (future (deliver p (async-update)))
