@@ -523,22 +523,25 @@
   )
 
 
-(expect-let ; Serialization
- ;; Dissoc'ing :bytes, :throwable, :ex-info, and :exception because Object#equals()
- ;; is reference-based and not structural. `expect` falls back to Java equality,
- ;; and so will fail when presented with different Java objects that don't themselves
- ;; implement #equals() - such as arrays and Exceptions - despite having identical data.
- [data ;; nippy/stress-data-comparable ; Awaiting Nippy v2.6
-  (dissoc nippy/stress-data :bytes :throwable :exception :ex-info)]
- {:id 10 :nippy-data data}
- (do (far/put-item *client-opts* ttable {:id 10 :nippy-data (far/freeze data)})
-     (far/get-item *client-opts* ttable {:id 10})))
+(let
+  ;; Dissoc'ing :bytes, :throwable, :ex-info, and :exception because Object#equals()
+  ;; is reference-based and not structural. `expect` falls back to Java equality,
+  ;; and so will fail when presented with different Java objects that don't themselves
+  ;; implement #equals() - such as arrays and Exceptions - despite having identical data.
+  [data ;; nippy/stress-data-comparable ; Awaiting Nippy v2.6
+      (dissoc nippy/stress-data :bytes :throwable :exception :ex-info)]
+  (expect ; Serialization
+    {:id 10 :nippy-data data}
+    (do (far/put-item *client-opts* ttable {:id 10 :nippy-data (far/freeze data)})
+        (far/get-item *client-opts* ttable {:id 10}))))
 
-(expect-let ; "Unserialized" bytes
- [data (byte-array (mapv byte [0 1 2]))]
- #(encore/ba= data %)
- (do (far/put-item *client-opts* ttable {:id 11 :ba-data data})
-     (:ba-data (far/get-item *client-opts* ttable {:id 11}))))
+(let
+  [data (byte-array (mapv byte [0 1 2]))]
+  (expect ; "Unserialized" bytes
+    #(encore/ba= data %)
+    (do (far/put-item *client-opts* ttable {:id 11 :ba-data data})
+        (:ba-data (far/get-item *client-opts* ttable {:id 11})))))
+
 
 (let [i0 {:id 0 :name "foo"}
       i1 {:id 1 :name "bar"}
