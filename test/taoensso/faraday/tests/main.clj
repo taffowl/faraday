@@ -3,9 +3,10 @@
             [taoensso.encore  :as encore]
             [taoensso.faraday :as far]
             [taoensso.nippy   :as nippy])
-  (:import  [com.amazonaws.auth BasicAWSCredentials]
-            [com.amazonaws.internal StaticCredentialsProvider]
-            [com.amazonaws.services.dynamodbv2.model ConditionalCheckFailedException]))
+  (:import [com.amazonaws.auth BasicAWSCredentials]
+           [com.amazonaws.internal StaticCredentialsProvider]
+           [com.amazonaws.services.dynamodbv2.model ConditionalCheckFailedException]
+           (com.amazonaws AmazonServiceException)))
 
 ;; TODO LOTS of tests still outstanding, PRs very, very welcome!!
 
@@ -358,7 +359,7 @@
     {:expected {:val [:= 2]}}))
   )
 
-;;; Query tests
+;;; Query and delete-item tests
 (let [i0    {:name    "Nineteen Eighty-Four"
              :author  "George Orwell"
              :year    1949
@@ -468,6 +469,42 @@
                 :expr-attr-names {"#y" "year"
                                   "#d" "details"}
                 :expr-attr-vals  {":cnt" 4}}))
+
+  ;;; Now that we already have items in there, let's try testing delete-item expressions
+
+  ;; If we specify a condition that isn't fulfilled, we get an exception
+  (expect AmazonServiceException
+          (far/delete-item *client-opts* book-table
+                           {:name   "Nineteen Eighty-Four"
+                            :author "George Orwell"}
+                           {:cond-expr       "#y > :y"
+                            :expr-attr-names {"#y" "year"}
+                            :expr-attr-vals  {":y" 1984}}))
+  (expect i0
+          (far/get-item *client-opts* book-table
+                        {:name   "Nineteen Eighty-Four"
+                         :author "George Orwell"}
+                        ))
+  ;; If a condition is fulfilled, then the item is deleted as expected
+  (expect nil
+          (far/delete-item *client-opts* book-table
+                           {:name   "Nineteen Eighty-Four"
+                            :author "George Orwell"}
+                           {:cond-expr       "#y = :y"
+                            :expr-attr-names {"#y" "year"}
+                            :expr-attr-vals  {":y" 1949}}))
+  (expect nil
+          (far/get-item *client-opts* book-table
+                        {:name   "Nineteen Eighty-Four"
+                         :author "George Orwell"}
+                        ))
+  ;; But we can't just embed the value in the condition expression
+  (expect AmazonServiceException
+          (far/delete-item *client-opts* book-table
+                           {:name   "Animal Farm"
+                            :author "George Orwell"}
+                           {:cond-expr       "#y = 1945"
+                            :expr-attr-names {"#y" "year"}}))
   )
 
 

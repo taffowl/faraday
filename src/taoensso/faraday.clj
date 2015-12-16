@@ -894,14 +894,17 @@
        (update-item-request table prim-kvs update-map opts)))))
 
 (defn delete-item-request "Implementation detail."
-  [table prim-kvs & [{:keys [return expected return-cc?]
+  [table prim-kvs & [{:keys [return expected return-cc? cond-expr expr-attr-vals expr-attr-names]
                       :or   {return :none}}]]
   (doto-cond [g (DeleteItemRequest.)]
-    :always  (.setTableName    (name table))
-    :always  (.setKey          (clj-item->db-item prim-kvs))
-    expected (.setExpected     (expected-values g))
-    return   (.setReturnValues (utils/enum g))
-    return-cc? (.setReturnConsumedCapacity (utils/enum :total))))
+    :always         (.setTableName    (name table))
+    :always         (.setKey          (clj-item->db-item prim-kvs))
+    cond-expr       (.setConditionExpression cond-expr)
+    expr-attr-names (.setExpressionAttributeNames expr-attr-names)
+    expr-attr-vals  (.setExpressionAttributeValues (clj->db-expr-vals-map expr-attr-vals))
+    expected        (.setExpected     (expected-values g))
+    return          (.setReturnValues (utils/enum g))
+    return-cc?      (.setReturnConsumedCapacity (utils/enum :total))))
 
 (defn delete-item
   "Deletes an item from a table by its primary key.

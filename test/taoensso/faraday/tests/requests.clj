@@ -247,6 +247,9 @@
                           :delete-item
                           {:k1 "val" :r1 -3}
                           {:return :all-new
+                           :cond-expr "another = :a AND #n = :name"
+                           :expr-attr-vals {":a" 1 ":name" "joe"}
+                           :expr-attr-names {"#n" "name"}
                            :expected {:e1 1}})]
 
   (expect "delete-item" (.getTableName req))
@@ -258,6 +261,9 @@
                   (.setValue (doto (AttributeValue.)
                                (.setN "1"))))}
           (.getExpected req))
+  (expect "another = :a AND #n = :name" (.getConditionExpression req))
+  (expect 2 (count (.getExpressionAttributeValues req)))
+  (expect {"#n" "name"} (.getExpressionAttributeNames req))
   (expect (str ReturnValue/ALL_NEW) (.getReturnValues req)))
 
 (let [req
