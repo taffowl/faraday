@@ -130,6 +130,22 @@
       (ProvisionedThroughput. 10 2)
       (.getProvisionedThroughput create-action))))
 
+(let [req ^UpdateTableRequest
+          (update-table-request
+            :update-table
+            {:gsindexes {:name         "global-secondary"
+                         :operation    :update
+                         :throughput   {:read 4 :write 2}}})]
+  (expect "update-table" (.getTableName req))
+
+  (let [[^GlobalSecondaryIndexUpdate gsindex & rest] (.getGlobalSecondaryIndexUpdates req)
+        update-action (.getUpdate gsindex)]
+    (expect nil? rest)
+    (expect "global-secondary" (.getIndexName update-action))
+    (expect
+      (ProvisionedThroughput. 4 2)
+      (.getProvisionedThroughput update-action))))
+
 (expect
  "get-item"
  (.getTableName

@@ -71,7 +71,8 @@
              LimitExceededException
              ProvisionedThroughputExceededException
              ResourceInUseException
-             ResourceNotFoundException]
+             ResourceNotFoundException
+             UpdateGlobalSecondaryIndexAction]
             com.amazonaws.ClientConfiguration
             com.amazonaws.auth.AWSCredentials
             com.amazonaws.auth.AWSCredentialsProvider
@@ -436,6 +437,36 @@
                 (recur))))))
     p))
 
+(defn index-status-watch
+  "Creates a future to poll for if an index has been created.
+
+  Returns a promise to which the index' status will be delivered, or
+  nil if the index isn't found.
+
+  index-type should be either :gsindexes or :lsindexes.
+  Currently supports only :gsindexes
+
+  Deref this promise to block until the index is ready."
+  [client-opts table index-type index-name & [{:keys [poll-ms]
+                                                    :or   {poll-ms 500}}]]
+  (let [p (promise)]
+    (future
+      (loop []
+        (let [current-descr (describe-table client-opts table)
+              index         (->> (index-type current-descr)
+                                 (filter #(= (:name %) (keyword index-name)))
+                                 first)]
+          (cond
+            (nil? index) (deliver p nil)
+            (or (nil? (:size index))
+                (nil? (:item-count index))) (do (Thread/sleep poll-ms)
+                                                (recur))
+            :else (deliver p index)
+            )
+          )))
+    p)
+  )
+
 (comment (create-table mc "delete-me5" [:id :s])
          @(table-status-watch mc "delete-me5" :creating) ; ~53000ms
          (def descr (describe-table mc "delete-me5")))
@@ -584,33 +615,37 @@
   {:operation _ :name _ :hash-keydef _ :range-keydef _ :projection _ :throughput _}
   index -> GlobalSecondaryIndexUpdate}
   "
-  [index]
-  (condp = (:operation index)
+  [{index-name :name
+    :keys      [hash-keydef range-keydef throughput projection operation]
+    :or        {projection :all}
+    :as        index}]
+  (condp = operation
     :create
-    (letfn [(create-fn
-              [{index-name :name
-                :keys      [hash-keydef range-keydef throughput projection]
-                :or        {projection :all}
-                :as        index}]
-              (assert (and index-name hash-keydef projection throughput)
-                      (str "Malformed global secondary index (GSI): " index))
-              (doto (GlobalSecondaryIndexUpdate.)
-                (.setCreate
-                  (doto
-                    (CreateGlobalSecondaryIndexAction.)
-                    (.setIndexName (name index-name))
-                    (.setKeySchema (key-schema hash-keydef range-keydef))
-                    (.setProjection
-                      (let [pr    (Projection.)
-                            ptype (if (coll?* projection) :include projection)]
-                        (.setProjectionType pr (utils/enum ptype))
-                        (when (= ptype :include)
-                          (.setNonKeyAttributes pr (mapv name projection)))
-                        pr))
-                    (.setProvisionedThroughput (provisioned-throughput throughput))
-                    ))))]
-      (create-fn index))
-
+    (do
+      (assert (and index-name hash-keydef projection throughput)
+              (str "Malformed global secondary index (GSI): " index))
+      (doto (GlobalSecondaryIndexUpdate.)
+        (.setCreate
+          (doto
+            (CreateGlobalSecondaryIndexAction.)
+            (.setIndexName (name index-name))
+            (.setKeySchema (key-schema hash-keydef range-keydef))
+            (.setProjection
+              (let [pr    (Projection.)
+                    ptype (if (coll?* projection) :include projection)]
+                (.setProjectionType pr (utils/enum ptype))
+                (when (= ptype :include)
+                  (.setNonKeyAttributes pr (mapv name projection)))
+                pr))
+            (.setProvisionedThroughput (provisioned-throughput throughput))
+            ))))
+    :update
+    (doto (GlobalSecondaryIndexUpdate.)
+      (.setUpdate
+        (doto
+          (UpdateGlobalSecondaryIndexAction.)
+          (.setIndexName (name index-name))
+          (.setProvisionedThroughput (provisioned-throughput throughput)))))
     nil
     )
   )

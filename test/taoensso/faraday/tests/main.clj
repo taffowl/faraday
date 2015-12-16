@@ -896,16 +896,24 @@
                              [:artist :s]
                              {:throughput {:read 1 :write 1}
                               :block?     true})
-   updated @(far/update-table *client-opts* temp-table
+   new-idx @(far/update-table *client-opts* temp-table
                               {:gsindexes {:operation   :create
                                            :name        "genre-index"
                                            :hash-keydef [:genre :s]
                                            :throughput  {:read 4 :write 2}
-                                           }})]
+                                           }})
+   ;; We need to wait until the index is created before updating it, or the call will fail
+   _       @(far/index-creation-watch *client-opts* temp-table :gsindexes "genre-index")
+   inc-idx @(far/update-table *client-opts* temp-table
+                              {:gsindexes {:operation   :update
+                                           :name        "genre-index"
+                                           :throughput  {:read 6 :write 6}
+                                           }})
+   ]
 
   ;; Tables are the same other than the global indexes
   (expect (dissoc created :gsindexes :prim-keys)
-          (dissoc updated :gsindexes :prim-keys))
+          (dissoc new-idx :gsindexes :prim-keys))
   ;; We have a new index
   (expect [{:name       :genre-index
             :size       nil
@@ -913,7 +921,16 @@
             :key-schema [{:name :genre :type :hash}]
             :projection {:projection-type "ALL" :non-key-attributes nil}
             :throughput {:read 4 :write 2 :last-decrease nil :last-increase nil :num-decreases-today nil}}]
-          (:gsindexes updated))
+          (:gsindexes new-idx))
+  ;; The updated index has the new throughput values, as well as a size and
+  ;; item-count since it was already created.
+  (expect [{:name       :genre-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :genre :type :hash}]
+            :projection {:projection-type "ALL" :non-key-attributes nil}
+            :throughput {:read 6 :write 6 :last-decrease nil :last-increase nil :num-decreases-today nil}}]
+          (:gsindexes inc-idx))
   )
 
 
