@@ -988,6 +988,67 @@
           (:gsindexes fin-idx))
   )
 
+;; We can scan with an index
+(do-with-temp-table
+  [created (far/create-table *client-opts* temp-table
+                             [:artist :s]
+                             {:range-keydef [:song-title :s]          ; Need a range key for it to accept a local secondary index
+                              :gsindexes    [{:name        "genre-index"
+                                              :hash-keydef [:genre :s]
+                                              :throughput  {:read 1 :write 2}}
+                                             {:name        "label-index"
+                                              :hash-keydef [:label :s]
+                                              :throughput  {:read 3 :write 4}
+                                              :projection  :keys-only}
+                                             ]
+                              :lsindexes    [{:name         "year-index"
+                                              :range-keydef [:year :n]}]
+                              :throughput   {:read 1 :write 1}
+                              :block?       true})
+   items [{:artist     "Carpenter Brut"
+           :song-title "Le Perv"
+           :genre      "Electro"
+           :label      "Unknown"
+           :year       2012}
+          {:artist     "The Mars Volta"
+           :song-title "Eriatarka"
+           :genre      "Progressive Rock"
+           :label      "Universal Records"
+           :year       2003}
+          {:artist     "The Darkest of the Hillside Thickets"
+           :song-title "The Shadow Out of Tim"
+           :genre      "Rock"
+           :label      "Divine Industries"
+           :year       2007}
+          {:artist     "The Mars Volta"
+           :song-title "Cassandra Gemini"
+           :genre      "Progressive Rock"
+           :label      "Universal Records"
+           :year       2005}]
+   _ (doall (map #(far/put-item *client-opts* temp-table %) items))
+   scanned (far/scan *client-opts* temp-table {:attr-conds {:year [:ge 2005]}
+                                               :index      "year-index"})
+   ]
+  (expect
+    [{:artist     "The Mars Volta"
+      :song-title "Cassandra Gemini"
+      :genre      "Progressive Rock"
+      :label      "Universal Records"
+      :year       2005}
+     {:artist     "The Darkest of the Hillside Thickets"
+      :song-title "The Shadow Out of Tim"
+      :genre      "Rock"
+      :label      "Divine Industries"
+      :year       2007}
+     {:artist     "Carpenter Brut"
+      :song-title "Le Perv"
+      :genre      "Electro"
+      :label      "Unknown"
+      :year       2012}
+     ]
+    scanned)
+  )
+
 
 ;;; Test `list-tables` lazy sequence
 ;; Creates a _large_ number of tables so only run locally

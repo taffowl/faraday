@@ -1138,11 +1138,12 @@
 
 (defn scan-request
   [table
-   & [{:keys [attr-conds last-prim-kvs span-reqs return limit total-segments
-              segment return-cc?] :as opts}]]
+   & [{:keys [attr-conds last-prim-kvs return limit total-segments
+              index segment return-cc?] :as opts}]]
   (doto-cond [g (ScanRequest.)]
     :always (.setTableName (name table))
     attr-conds      (.setScanFilter        (query|scan-conditions g))
+    index           (.setIndexName index)
     last-prim-kvs   (.setExclusiveStartKey
                      (clj-item->db-item last-prim-kvs))
     limit           (.setLimit             (int g))
@@ -1156,6 +1157,7 @@
 (defn scan
   "Retrieves items from a table (unindexed) with options:
     :attr-conds     - {<attr> [<comparison-operator> <val-or-vals>] ...}.
+    :index          - Index name to use.
     :limit          - Max num >=1 of items to eval (≠ num of matching items).
                       Useful to prevent harmful sudden bursts of read activity.
     :last-prim-kvs  - Primary key-val from which to eval, useful for paging.

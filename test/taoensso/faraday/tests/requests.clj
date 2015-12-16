@@ -325,18 +325,21 @@
   (expect 2 (.getLimit req)))
 
 (let [req ^ScanRequest (scan-request
-                        :scan
-                        {:attr-conds {:age [:in [24 27]]}
-                         :return :count
-                         :limit 10})]
+                         :scan
+                         {:attr-conds {:age [:in [24 27]]}
+                          :index      "age-index"
+                          :return     :count
+                          :limit      10})]
   (expect "scan" (.getTableName req))
   (expect 10 (.getLimit req))
   (expect
-   {"age" (doto (Condition.)
-            (.setComparisonOperator ComparisonOperator/IN)
-            (.setAttributeValueList [(doto (AttributeValue.)
-                                       (.setN "24"))
-                                     (doto (AttributeValue.)
-                                       (.setN "27"))]))}
-   (.getScanFilter req))
-  (expect (str Select/COUNT) (.getSelect req)))
+    {"age" (doto (Condition.)
+             (.setComparisonOperator ComparisonOperator/IN)
+             (.setAttributeValueList [(doto (AttributeValue.)
+                                        (.setN "24"))
+                                      (doto (AttributeValue.)
+                                        (.setN "27"))]))}
+    (.getScanFilter req))
+  (expect (str Select/COUNT) (.getSelect req))
+  (expect "age-index" (.getIndexName req))
+  )
