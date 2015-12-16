@@ -328,6 +328,8 @@
                          :scan
                          {:attr-conds {:age [:in [24 27]]}
                           :index      "age-index"
+                          :projection "age, #t"
+                          :expr-attr-names {"#t" "year"}
                           :return     :count
                           :limit      10})]
   (expect "scan" (.getTableName req))
@@ -342,4 +344,6 @@
     (.getScanFilter req))
   (expect (str Select/COUNT) (.getSelect req))
   (expect "age-index" (.getIndexName req))
+  (expect "age, #t" (.getProjectionExpression req))
+  (expect {"#t" "year"} (.getExpressionAttributeNames req))
   )

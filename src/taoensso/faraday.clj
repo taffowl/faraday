@@ -1139,14 +1139,17 @@
 (defn scan-request
   [table
    & [{:keys [attr-conds last-prim-kvs return limit total-segments
+              projection expr-attr-names
               index segment return-cc?] :as opts}]]
   (doto-cond [g (ScanRequest.)]
     :always (.setTableName (name table))
     attr-conds      (.setScanFilter        (query|scan-conditions g))
+    expr-attr-names (.setExpressionAttributeNames expr-attr-names)
     index           (.setIndexName index)
     last-prim-kvs   (.setExclusiveStartKey
                      (clj-item->db-item last-prim-kvs))
     limit           (.setLimit             (int g))
+    projection      (.setProjectionExpression g)
     total-segments  (.setTotalSegments     (int g))
     segment         (.setSegment           (int g))
     (coll?* return) (.setAttributesToGet (mapv name return))
@@ -1156,17 +1159,18 @@
 
 (defn scan
   "Retrieves items from a table (unindexed) with options:
-    :attr-conds     - {<attr> [<comparison-operator> <val-or-vals>] ...}.
-    :index          - Index name to use.
-    :limit          - Max num >=1 of items to eval (≠ num of matching items).
-                      Useful to prevent harmful sudden bursts of read activity.
-    :last-prim-kvs  - Primary key-val from which to eval, useful for paging.
-    :span-reqs      - {:max _ :throttle-ms _} controls automatic multi-request
-                      stitching.
-    :return         - e/o #{:all-attributes :all-projected-attributes :count
-                            [<attr> ...]}.
-    :total-segments - Total number of parallel scan segments.
-    :segment        - Calling worker's segment number (>=0, <=total-segments).
+    :attr-conds      - {<attr> [<comparison-operator> <val-or-vals>] ...}.
+    :expr-attr-names - Expression attribute names, as a map of {\"#attr_name\" \"name\"}
+    :index           - Index name to use.
+    :limit           - Max num >=1 of items to eval (≠ num of matching items).
+                       Useful to prevent harmful sudden bursts of read activity.
+    :last-prim-kvs   - Primary key-val from which to eval, useful for paging.
+    :span-reqs       - {:max _ :throttle-ms _} controls automatic multi-request
+                       stitching.
+    :return          - e/o #{:all-attributes :all-projected-attributes :count
+                             [<attr> ...]}.
+    :total-segments  - Total number of parallel scan segments.
+    :segment         - Calling worker's segment number (>=0, <=total-segments).
 
   comparison-operators e/o #{:eq :le :lt :ge :gt :begins-with :between :ne
                              :not-null :null :contains :not-contains :in}.
