@@ -72,7 +72,8 @@
              ProvisionedThroughputExceededException
              ResourceInUseException
              ResourceNotFoundException
-             UpdateGlobalSecondaryIndexAction]
+             UpdateGlobalSecondaryIndexAction
+             DeleteGlobalSecondaryIndexAction]
             com.amazonaws.ClientConfiguration
             com.amazonaws.auth.AWSCredentials
             com.amazonaws.auth.AWSCredentialsProvider
@@ -646,6 +647,12 @@
           (UpdateGlobalSecondaryIndexAction.)
           (.setIndexName (name index-name))
           (.setProvisionedThroughput (provisioned-throughput throughput)))))
+    :delete
+    (doto (GlobalSecondaryIndexUpdate.)
+      (.setDelete
+        (doto
+          (DeleteGlobalSecondaryIndexAction.)
+          (.setIndexName (name index-name)))))
     nil
     )
   )

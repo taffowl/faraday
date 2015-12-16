@@ -146,6 +146,19 @@
       (ProvisionedThroughput. 4 2)
       (.getProvisionedThroughput update-action))))
 
+(let [req ^UpdateTableRequest
+          (update-table-request
+            :update-table
+            {:gsindexes {:name      "global-secondary"
+                         :operation :delete}})]
+  (expect "update-table" (.getTableName req))
+
+  (let [[^GlobalSecondaryIndexUpdate gsindex & rest] (.getGlobalSecondaryIndexUpdates req)
+        action (.getDelete gsindex)]
+    (expect nil? rest)
+    (expect "global-secondary" (.getIndexName action))
+    ))
+
 (expect
  "get-item"
  (.getTableName

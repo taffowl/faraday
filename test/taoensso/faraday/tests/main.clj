@@ -903,12 +903,30 @@
                                            :throughput  {:read 4 :write 2}
                                            }})
    ;; We need to wait until the index is created before updating it, or the call will fail
-   _       @(far/index-creation-watch *client-opts* temp-table :gsindexes "genre-index")
+   _       @(far/index-status-watch *client-opts* temp-table :gsindexes "genre-index")
    inc-idx @(far/update-table *client-opts* temp-table
                               {:gsindexes {:operation   :update
                                            :name        "genre-index"
                                            :throughput  {:read 6 :write 6}
                                            }})
+   ;; We can create a second index right after
+   amt-idx @(far/update-table *client-opts* temp-table
+                              {:gsindexes {:operation   :create
+                                           :name        "amount-index"
+                                           :hash-keydef [:amount :n]
+                                           :throughput  {:read 1 :write 1}
+                                           }})
+   ;; Let's wait until amount-index is created before deleting genre-index,
+   ;; so that we can consistently evaluate the result (otherwise we might not
+   ;; know if size/item-count are 0 or nil.
+   _       @(far/index-status-watch *client-opts* temp-table :gsindexes "amount-index")
+   del-idx @(far/update-table *client-opts* temp-table
+                              {:gsindexes {:operation   :delete
+                                           :name        "genre-index"
+                                           }})
+   _       @(far/index-status-watch *client-opts* temp-table :gsindexes "genre-index")
+   ;; And get the final state
+   fin-idx (far/describe-table *client-opts* temp-table)
    ]
 
   ;; Tables are the same other than the global indexes
@@ -931,6 +949,43 @@
             :projection {:projection-type "ALL" :non-key-attributes nil}
             :throughput {:read 6 :write 6 :last-decrease nil :last-increase nil :num-decreases-today nil}}]
           (:gsindexes inc-idx))
+  ;; The second index created comes back without a size or item count
+  (expect [{:name       :amount-index
+            :size       nil
+            :item-count nil
+            :key-schema [{:name :amount :type :hash}]
+            :projection {:projection-type "ALL" :non-key-attributes nil}
+            :throughput {:read 1 :write 1 :last-decrease nil :last-increase nil :num-decreases-today nil}}
+           {:name       :genre-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :genre :type :hash}]
+            :projection {:projection-type "ALL" :non-key-attributes nil}
+            :throughput {:read 6 :write 6 :last-decrease nil :last-increase nil :num-decreases-today nil}}]
+          (:gsindexes amt-idx))
+  ;; When we request that the genre index be deleted, it returns that it's being destroyed
+  (expect [{:name       :amount-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :amount :type :hash}]
+            :projection {:projection-type "ALL" :non-key-attributes nil}
+            :throughput {:read 1 :write 1 :last-decrease nil :last-increase nil :num-decreases-today nil}}
+           {:name       :genre-index
+            :size       nil
+            :item-count nil
+            :key-schema [{:name :genre :type :hash}]
+            :projection {:projection-type "ALL" :non-key-attributes nil}
+            :throughput {:read 6 :write 6 :last-decrease nil :last-increase nil :num-decreases-today nil}}
+           ]
+          (:gsindexes del-idx))
+  ;; And finally, we were left only with the amount index
+  (expect [{:name       :amount-index
+            :size       0
+            :item-count 0
+            :key-schema [{:name :amount :type :hash}]
+            :projection {:projection-type "ALL" :non-key-attributes nil}
+            :throughput {:read 1 :write 1 :last-decrease nil :last-increase nil :num-decreases-today nil}}]
+          (:gsindexes fin-idx))
   )
 
 
