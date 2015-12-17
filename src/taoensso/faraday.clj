@@ -724,13 +724,13 @@
 ;;;; Items
 
 (defn- get-item-request "Implementation detail."
-  [table prim-kvs & [{:keys [attrs consistent? return-cc? projection expr-attr-names]}]]
+  [table prim-kvs & [{:keys [attrs consistent? return-cc? proj-expr expr-attr-names]}]]
   (doto-cond [g (GetItemRequest.)]
     :always         (.setTableName       (name table))
     :always         (.setKey             (clj-item->db-item prim-kvs))
     consistent?     (.setConsistentRead  g)
     attrs           (.setAttributesToGet (mapv name g))
-    projection      (.setProjectionExpression g)
+    proj-expr       (.setProjectionExpression g)
     expr-attr-names (.setExpressionAttributeNames expr-attr-names)
     return-cc?      (.setReturnConsumedCapacity (utils/enum :total))))
 
@@ -738,7 +738,7 @@
   "Retrieves an item from a table by its primary key with options:
     prim-kvs         - {<hash-key> <val>} or {<hash-key> <val> <range-key> <val>}.
     :attrs           - Attrs to return, [<attr> ...].
-    :projection      - Projection expression as a string
+    :proj-expr       - Projection expression as a string
     :expr-attr-names - Map of strings for ExpressionAttributeNames
     :consistent?     - Use strongly (rather than eventually) consistent reads?"
   [client-opts table prim-kvs & [opts]]
@@ -1058,7 +1058,7 @@
 (defn- query-request "Implementation detail."
   [table prim-key-conds
    & [{:keys [last-prim-kvs query-filter span-reqs return index order limit consistent?
-              projection filter expr-attr-vals expr-attr-names return-cc?] :as opts
+              proj-expr filter expr-attr-vals expr-attr-names return-cc?] :as opts
        :or {order :asc}}]]
   (doto-cond [g (QueryRequest.)]
     :always (.setTableName        (name table))
@@ -1067,7 +1067,7 @@
     last-prim-kvs   (.setExclusiveStartKey
                      (clj-item->db-item last-prim-kvs))
     query-filter    (.setQueryFilter (query|scan-conditions query-filter))
-    projection      (.setProjectionExpression projection)
+    proj-expr       (.setProjectionExpression proj-expr)
     filter          (.setFilterExpression g)
     expr-attr-names (.setExpressionAttributeNames expr-attr-names)
     expr-attr-vals  (.setExpressionAttributeValues (clj->db-expr-vals-map expr-attr-vals))
@@ -1084,7 +1084,7 @@
     prim-key-conds   - {<key-attr> [<comparison-operator> <val-or-vals>] ...}.
     :last-prim-kvs   - Primary key-val from which to eval, useful for paging.
     :query-filter    - {<key-attr> [<comparison-operator> <val-or-vals>] ...}.
-    :projection      - Projection expression string
+    :proj-expr       - Projection expression string
     :filter          - Filter expression string
     :expr-attr-names - Expression attribute names, as a map of {\"#attr_name\" \"name\"}
     :expr-attr-vals  - Expression attribute values, as a map {\":attr_value\" \"value\"}
@@ -1128,7 +1128,7 @@
 (defn scan-request
   [table
    & [{:keys [attr-conds last-prim-kvs return limit total-segments
-              projection expr-attr-names
+              proj-expr expr-attr-names
               index segment return-cc?] :as opts}]]
   (doto-cond [g (ScanRequest.)]
     :always (.setTableName (name table))
@@ -1138,7 +1138,7 @@
     last-prim-kvs   (.setExclusiveStartKey
                      (clj-item->db-item last-prim-kvs))
     limit           (.setLimit             (int g))
-    projection      (.setProjectionExpression g)
+    proj-expr       (.setProjectionExpression g)
     total-segments  (.setTotalSegments     (int g))
     segment         (.setSegment           (int g))
     (coll?* return) (.setAttributesToGet (mapv name return))
