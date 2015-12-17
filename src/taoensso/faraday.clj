@@ -698,9 +698,20 @@
   description will be delivered. Deref this promise to block until update
   has completed.
 
+  Only one global secondary index operation can take place at a time.
+
   Possible values to update:
 
   :throughput   - {:read <units> :write <units>}
+  :gsindexes    - {:operation e/o #{:create :update :delete}
+                   ;; Required
+                   :name _
+                   ;; Only for :update / :create
+                   :throughput _
+                   ;; Only for :create
+                   :hash-keydef _
+                   :range-keydef _
+                   :projection #{:all :keys-only [<attr> ...]}}
   "
   [client-opts table update-params & [{:keys [span-reqs]
                                        :or   {span-reqs {:max 5}}}]]
