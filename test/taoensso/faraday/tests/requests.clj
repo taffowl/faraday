@@ -243,6 +243,29 @@
           (.getExpected req)))
 
 (let [req
+      ^UpdateItemRequest (update-item-request
+                           :update-item
+                           {:x 1}
+                           {:update-expr     "SET #p = :price REMOVE details.tags[2]"
+                            :expr-attr-vals  {":price" 0.89}
+                            :expr-attr-names {"#p" "price"}
+                            :expected        {:e1 "expected!"}
+                            :return          :updated-old})]
+
+  (expect "update-item" (.getTableName req))
+  (expect {"x" (doto (AttributeValue.)
+                 (.setN "1"))}
+          (.getKey req))
+  (expect "SET #p = :price REMOVE details.tags[2]" (.getUpdateExpression req))
+  (expect {":price" (doto (AttributeValue.)
+                      (.setN "0.89"))} (.getExpressionAttributeValues req))
+  (expect {"#p" "price"} (.getExpressionAttributeNames req))
+  (expect (str ReturnValue/UPDATED_OLD) (.getReturnValues req))
+  (expect {"e1" (doto (ExpectedAttributeValue.)
+                  (.setValue (AttributeValue. "expected!")))}
+          (.getExpected req)))
+
+(let [req
       ^DeleteItemRequest (delete-item-request
                           :delete-item
                           {:k1 "val" :r1 -3}
