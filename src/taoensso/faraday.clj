@@ -896,7 +896,8 @@
 
 ;;;; Batch ops
 
-(def ^:dynamic *attr-multi-vs?* "Temporary hack/workaround for [#63]" true)
+(def ^:dynamic *attr-multi-vs?*
+  "To support backwards compatibility, Ref. GitHub issue #63" false)
 
 (defn- attr-multi-vs
   "Implementation detail.
@@ -980,7 +981,7 @@
   [client-opts requests
    & [{:keys [return-cc? span-reqs attr-multi-vs?] :as opts
        :or   {span-reqs {:max 5}
-              attr-multi-vs? true}}]]
+              attr-multi-vs? *attr-multi-vs?*}}]]
   (binding [*attr-multi-vs?* attr-multi-vs?]
     (let [run1
           (fn [raw-req]
@@ -1021,7 +1022,7 @@
   automatically be stitched together (to exceed throughput limits, for example)."
   [client-opts requests & [{:keys [return-cc? span-reqs attr-multi-vs?] :as opts
                             :or   {span-reqs {:max 5}
-                                   attr-multi-vs? true}}]]
+                                   attr-multi-vs? *attr-multi-vs?*}}]]
   (binding [*attr-multi-vs?* attr-multi-vs?]
     (let [run1
           (fn [raw-req]
