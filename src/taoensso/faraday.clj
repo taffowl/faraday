@@ -1058,7 +1058,7 @@
 (defn- query-request "Implementation detail."
   [table prim-key-conds
    & [{:keys [last-prim-kvs query-filter span-reqs return index order limit consistent?
-              proj-expr filter expr-attr-vals expr-attr-names return-cc?] :as opts
+              proj-expr filter-expr expr-attr-vals expr-attr-names return-cc?] :as opts
        :or {order :asc}}]]
   (doto-cond [g (QueryRequest.)]
     :always (.setTableName        (name table))
@@ -1068,7 +1068,7 @@
                      (clj-item->db-item last-prim-kvs))
     query-filter    (.setQueryFilter (query|scan-conditions query-filter))
     proj-expr       (.setProjectionExpression proj-expr)
-    filter          (.setFilterExpression g)
+    filter-expr     (.setFilterExpression g)
     expr-attr-names (.setExpressionAttributeNames expr-attr-names)
     expr-attr-vals  (.setExpressionAttributeValues (clj->db-expr-vals-map expr-attr-vals))
     limit           (.setLimit     (int g))
@@ -1085,7 +1085,7 @@
     :last-prim-kvs   - Primary key-val from which to eval, useful for paging.
     :query-filter    - {<key-attr> [<comparison-operator> <val-or-vals>] ...}.
     :proj-expr       - Projection expression string
-    :filter          - Filter expression string
+    :filter-expr     - Filter expression string
     :expr-attr-names - Expression attribute names, as a map of {\"#attr_name\" \"name\"}
     :expr-attr-vals  - Expression attribute values, as a map {\":attr_value\" \"value\"}
     :span-reqs       - {:max _ :throttle-ms _} controls automatic multi-request
