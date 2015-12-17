@@ -34,10 +34,23 @@
             ComparisonOperator
             Select]))
 
-(expect
- "describe-table-name"
- (.getTableName ^DescribeTableRequest
-                (describe-table-request :describe-table-name)))
+(def describe-table-request   #'taoensso.faraday/describe-table-request)
+(def create-table-request     #'taoensso.faraday/create-table-request)
+(def update-table-request     #'taoensso.faraday/update-table-request)
+(def get-item-request         #'taoensso.faraday/get-item-request)
+(def put-item-request         #'taoensso.faraday/put-item-request)
+(def update-item-request      #'taoensso.faraday/update-item-request)
+(def delete-item-request      #'taoensso.faraday/delete-item-request)
+(def batch-get-item-request   #'taoensso.faraday/batch-get-item-request)
+(def batch-request-items      #'taoensso.faraday/batch-request-items)
+(def batch-write-item-request #'taoensso.faraday/batch-write-item-request)
+(def attr-multi-vs            #'taoensso.faraday/attr-multi-vs)
+(def query-request            #'taoensso.faraday/query-request)
+(def write-request            #'taoensso.faraday/write-request)
+
+(expect "describe-table-name"
+  (.getTableName ^DescribeTableRequest
+    (describe-table-request :describe-table-name)))
 
 (let [req ^CreateTableRequest
       (create-table-request
