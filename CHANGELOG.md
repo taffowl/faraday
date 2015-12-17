@@ -1,5 +1,34 @@
 > This project uses [Break Versioning](https://github.com/ptaoussanis/encore/blob/master/BREAK-VERSIONING.md) as of **Aug 16, 2014**.
 
+## v1.9.0-SNAPSHOT / 2015 December 17
+
+> This is a major feature release with **BREAKING CHANGES** (see **Migration** section for details).
+> **Please report any problems / unexpected breakages**.
+> Big thanks to @ricardojmendez for most of the work for this release!
+
+* **BREAKING**: `update-item` args have changed (`:update-map` is now optional) [@ricardojmendez] **[1]**
+* **BREAKING**: `batch-get-item`, `batch-write-item` now treat lists/vecs as literals [#63] **[2]**
+* **New**: `put-item`, `update-item` support for expressions [@leonardoborges #73]
+* **New**: `get-item` support for `:proj-expr`, `:expr-names` [@ricardojmendez]
+* **New**: `query` support for `:filter-expr`, `:proj-expr` [@ricardojmendez]
+* **New**: `update-table` support for index modification [@ricardojmendez]
+* **New**: `scan` support for indexes, `:expr-attr-names`, `:proj-expr` [@ricardojmendez]
+* **New**: `delete-item` support for expressions [@ricardojmendez]
+* **Change**: `update-table` now returns a future instead of a promise
+* **Change**: mark implementation details as private
+* **Fix**: `remove-empty-attr-vals` vs blank strings [@crough #72]
+
+```clojure
+[com.taoensso/faraday "1.9.0-SNAPSHOT"]
+```
+
+#### MIGRATION INSTRUCTIONS
+
+**[1]**: `(update-item <client-opts> <table> <prim-kvs> <update-map> <opts>)` -> `(update-item <client-opts> <table> <prim-kvs> {:update-map <update-map> <other-opts>})`
+
+**[2]**: Please see [#63] for details
+
+
 ## v1.8.0 / 2015 September 26
 
 > This is a non-breaking feature release
