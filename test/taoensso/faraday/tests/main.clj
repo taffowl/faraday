@@ -94,17 +94,19 @@
     #(far/delete-item *client-opts* ttable {:id 10}))
 
   (expect
-   {:id 10 :name "baz"}
-   (do
-     (far/put-item *client-opts* ttable i)
-     (far/update-item
-        *client-opts* ttable {:id 10} {:name [:put "baz"]} {:return :all-new})))
+    {:id 10 :name "baz"}
+    (do
+      (far/put-item *client-opts* ttable i)
+      (far/update-item
+        *client-opts* ttable {:id 10} {:update-map {:name [:put "baz"]}
+                                       :return     :all-new})))
 
   (expect
-   #=(far/ex :conditional-check-failed)
-   (far/update-item *client-opts* ttable
-       {:id 10} {:name [:put "baz"]}
-       {:expected {:name "garbage"}})))
+    #=(far/ex :conditional-check-failed)
+    (far/update-item *client-opts* ttable
+                     {:id 10}
+                     {:update-map {:name [:put "baz"]}
+                      :expected   {:name "garbage"}})))
 
 ;;;; Expressions support
 
@@ -117,7 +119,6 @@
    (do
      (far/update-item *client-opts* ttable
        {:id 10}
-       {}
        {:update-expr     "SET #name = :name"
         :expr-attr-names {"#name" "name"}
         :expr-attr-vals  {":name" "foo"}
@@ -128,7 +129,6 @@
    (do
      (far/update-item *client-opts* ttable
        {:id 10}
-       {}
        {:cond-expr       "#name <> :name"
         :update-expr     "SET #name = :name"
         :expr-attr-names {"#name" "name"}
@@ -268,42 +268,42 @@
   (expect
    (update-in t [:strset] #(conj % "d"))
    (update-t
-    {:strset [:add #{"d"}]}))
+    {:update-map {:strset [:add #{"d"}]}}))
 
   (expect
    (update-in t [:strset] #(disj % "c"))
    (update-t
-    {:strset [:delete #{"c"}]}))
+    {:update-map {:strset [:delete #{"c"}]}}))
 
   (expect
    (assoc t :strset #{"d"})
    (update-t
-    {:strset [:put #{"d"}]}))
+    {:update-map {:strset [:put #{"d"}]}}))
 
   (expect
    (assoc t :num 2)
    (update-t
-    {:num [:add 1]}))
+    {:update-map {:num [:add 1]}}))
 
   (expect
    (dissoc t :map)
    (update-t
-    {:map [:delete]}))
+    {:update-map {:map [:delete]}}))
 
   (expect
    (assoc t :boolT false)
    (update-t
-    {:boolT [:put false]}))
+    {:update-map {:boolT [:put false]}}))
 
   (expect
    (assoc t :boolT nil)
    (update-t
-    {:boolT [:put nil]}))
+    {:update-map {:boolT [:put nil]}}))
 
   (expect
    (assoc-in t [:map-new :new] "x")
    (update-t
-    {:map-new [:put {:new "x"}]})))
+    {:update-map {:map-new [:put {:new "x"}]}})))
 
 ;;;; expectation tests
 (let [t {:id 16
@@ -311,52 +311,52 @@
          :str "abc"}]
 
   (expect
-   (update-in t [:val] inc)
-   (update-t
-    {:val [:add 1]}
-    {:expected {:val :exists}}))
+    (update-in t [:val] inc)
+    (update-t
+      {:update-map {:val [:add 1]}
+       :expected   {:val :exists}}))
 
   (expect
    (update-in t [:val] inc)
    (update-t
-    {:val [:add 1]}
-    {:expected {:blah :not-exists}}))
+    {:update-map {:val [:add 1]}
+     :expected {:blah :not-exists}}))
+
+  (expect
+    (update-in t [:val] inc)
+    (update-t
+      {:update-map {:val [:add 1]}
+       :expected   {:val [:< 5]}}))
 
   (expect
    (update-in t [:val] inc)
    (update-t
-    {:val [:add 1]}
-    {:expected {:val [:< 5]}}))
+     {:update-map {:val [:add 1]}
+      :expected   {:val [:eq 1]}}))
 
   (expect
    (update-in t [:val] inc)
    (update-t
-    {:val [:add 1]}
-    {:expected {:val [:eq 1]}}))
+     {:update-map {:val [:add 1]}
+      :expected   {:str [:begins-with "a"]}}))
 
   (expect
    (update-in t [:val] inc)
    (update-t
-    {:val [:add 1]}
-    {:expected {:str [:begins-with "a"]}}))
-
-  (expect
-   (update-in t [:val] inc)
-   (update-t
-    {:val [:add 1]}
-    {:expected {:val [:between 0 2]}}))
+     {:update-map {:val [:add 1]}
+      :expected   {:val [:between 0 2]}}))
 
   (expect
    ConditionalCheckFailedException
    (update-t
-    {:val [:add 1]}
-    {:expected {:val [:> 5]}}))
+     {:update-map {:val [:add 1]}
+      :expected   {:val [:> 5]}}))
 
   (expect
    ConditionalCheckFailedException
    (update-t
-    {:val [:add 1]}
-    {:expected {:val [:= 2]}}))
+     {:update-map {:val [:add 1]}
+      :expected   {:val [:= 2]}}))
   )
 
 ;;; Query and delete-item tests

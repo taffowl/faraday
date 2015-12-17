@@ -790,7 +790,7 @@
 
 (def ^:private deprecation-warning-update-map_
   (delay
-    (println "Faraday WARNING: `update-map` is deprecated in favor of `:cond-expr`")))
+    (println "Faraday WARNING: `update-map` is deprecated in favor of `:update-expr`")))
 
 (defn put-item-request
   [table item &
@@ -844,8 +844,8 @@
      update-map)))
 
 (defn update-item-request
-  [table prim-kvs update-map &
-   [{:keys [return expected return-cc?
+  [table prim-kvs &
+   [{:keys [return expected return-cc? update-map
             cond-expr update-expr expr-attr-names expr-attr-vals]
      :or   {return :none}}]]
 
@@ -865,7 +865,7 @@
 (defn update-item
   "Updates an item in a table by its primary key with options:
     prim-kvs         - {<hash-key> <val>} or {<hash-key> <val> <range-key> <val>}
-    update-map       - DEPRECATED in favor of `:update-expr`,
+    :update-map      - DEPRECATED in favor of `:update-expr`,
                        {<attr> [<#{:put :add :delete}> <optional value>]}
     :cond-expr       - \"attribute_exists(attr_name) AND|OR ...\"
     :update-expr     - \"SET #attr_name = :attr_value\"
@@ -876,8 +876,8 @@
       {<attr> <#{:exists :not-exists [<comparison-operator> <value>] <value>}> ...}
       With comparison-operator e/o #{:eq :le :lt :ge :gt :begins-with :between}."
 
-  ([client-opts table prim-kvs update-map &
-    [{:keys [return expected return-cc? cond-expr update-expr]
+  ([client-opts table prim-kvs &
+    [{:keys [update-map return expected return-cc? cond-expr update-expr]
       :as opts}]]
 
    (assert (not (and expected cond-expr))
@@ -891,7 +891,7 @@
 
    (as-map
      (.updateItem (db-client client-opts)
-       (update-item-request table prim-kvs update-map opts)))))
+       (update-item-request table prim-kvs opts)))))
 
 (defn delete-item-request "Implementation detail."
   [table prim-kvs & [{:keys [return expected return-cc? cond-expr expr-attr-vals expr-attr-names]

@@ -218,11 +218,11 @@
       ^UpdateItemRequest (update-item-request
                           :update-item
                           {:x 1}
-                          {:y [:put 2]
-                           :z [:add "xyz"]
-                           :a [:delete]}
-                          {:expected {:e1 "expected!"}
-                           :return :updated-old})]
+                          {:update-map {:y [:put 2]
+                                        :z [:add "xyz"]
+                                        :a [:delete]}
+                           :expected   {:e1 "expected!"}
+                           :return     :updated-old})]
 
   (expect "update-item" (.getTableName req))
   (expect {"x" (doto (AttributeValue.)
