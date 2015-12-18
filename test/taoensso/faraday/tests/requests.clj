@@ -369,12 +369,12 @@
 
 (let [req ^ScanRequest (scan-request
                          :scan
-                         {:attr-conds {:age [:in [24 27]]}
-                          :index      "age-index"
-                          :projection "age, #t"
+                         {:attr-conds      {:age [:in [24 27]]}
+                          :index           "age-index"
+                          :proj-expr       "age, #t"
                           :expr-attr-names {"#t" "year"}
-                          :return     :count
-                          :limit      10})]
+                          :return          :count
+                          :limit           10})]
   (expect "scan" (.getTableName req))
   (expect 10 (.getLimit req))
   (expect

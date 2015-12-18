@@ -200,27 +200,27 @@
     i0 (far/get-item *client-opts* ttable {:id 1984}))
 
   (expect ; Simple projection expression, equivalent to getting the attributes
-    {:author "Arthur C. Clarke"} (far/get-item *client-opts* ttable {:id 2001} {:projection "author"}))
+    {:author "Arthur C. Clarke"} (far/get-item *client-opts* ttable {:id 2001} {:proj-expr "author"}))
 
   (expect ; Getting the tags for 1984
     {:details {:tags ["dystopia" "surveillance"]}}
-    (far/get-item *client-opts* ttable {:id 1984} {:projection "details.tags"}))
+    (far/get-item *client-opts* ttable {:id 1984} {:proj-expr "details.tags"}))
 
   (expect ; Getting a specific character for 2001
     {:details {:characters ["HAL 9000"]}}
-    (far/get-item *client-opts* ttable {:id 2001} {:projection "details.characters[2]"}))
+    (far/get-item *client-opts* ttable {:id 2001} {:proj-expr "details.characters[2]"}))
 
   (expect ; Getting multiple items with projections from the same list of 2001 characters
     {:details {:characters ["David Bowman" "HAL 9000"]}}
     (far/get-item *client-opts* ttable
                   {:id 2001}
-                  {:projection "details.characters[0], details.characters[2]"}))
+                  {:proj-expr "details.characters[0], details.characters[2]"}))
 
   (expect ; Expression attribute names, necessary since 'name' is a reserved keyword
     {:author "Arthur C. Clarke" :name "2001: A Space Odyssey"}
     (far/get-item *client-opts* ttable
                   {:id 2001}
-                  {:projection      "#n, author"
+                  {:proj-expr       "#n, author"
                    :expr-attr-names {"#n" "name"}}))
 
   (expect ; Batch delete
@@ -423,35 +423,35 @@
   ;; Test query filter expressions
   (expect
     [i2] (far/query *client-opts* book-table {:author [:eq "Arthur C. Clarke"]}
-                    {:filter         "size(details.characters) >= :cnt"
+                    {:filter-expr    "size(details.characters) >= :cnt"
                      :expr-attr-vals {":cnt" 4}}))
   (expect
     [i1 i3] (far/query *client-opts* book-table {:author [:eq "Arthur C. Clarke"]}
-                       {:filter         "size(details.characters) < :cnt"
+                       {:filter-expr    "size(details.characters) < :cnt"
                         :expr-attr-vals {":cnt" 4}}))
   (expect
     [i1 i3] (far/query *client-opts* book-table {:author [:eq "Arthur C. Clarke"]}
-                       {:filter         "size(details.characters) < :cnt"
+                       {:filter-expr    "size(details.characters) < :cnt"
                         :expr-attr-vals {":cnt" 4}}))
 
   ;; Test expression attribute names
   ;; We cannot combine query-filter and filter expressions, it's either-or
   (expect
     [i1] (far/query *client-opts* book-table {:author [:eq "Arthur C. Clarke"]}
-                    {:filter          "size(details.characters) < :cnt and #y < :year"
+                    {:filter-expr     "size(details.characters) < :cnt and #y < :year"
                      :expr-attr-names {"#y" "year"}
                      :expr-attr-vals  {":cnt" 4 ":year" 1990}}))
 
   ;; Test that we can use expression attribute names even when going for a nested expression
   (expect
     [i1] (far/query *client-opts* book-table {:author [:eq "Arthur C. Clarke"]}
-                    {:filter          "size(#d.characters) < :cnt and #y < :year"
+                    {:filter-expr     "size(#d.characters) < :cnt and #y < :year"
                      :expr-attr-names {"#y" "year"
                                        "#d" "details"}
                      :expr-attr-vals  {":cnt" 4 ":year" 1990}}))
   (expect
     [i1] (far/query *client-opts* book-table {:author [:eq "Arthur C. Clarke"]}
-                    {:filter          "size(#d.#c) < :cnt and #y < :year"
+                    {:filter-expr     "size(#d.#c) < :cnt and #y < :year"
                      :expr-attr-names {"#y" "year"
                                        "#d" "details"
                                        "#c" "characters"}
@@ -464,8 +464,8 @@
      {:year    1997
       :details {:characters ["Francis Poole"]}}]
     (far/query *client-opts* book-table {:author [:eq "Arthur C. Clarke"]}
-               {:filter          "size(#d.characters) < :cnt"
-                :projection      "#y, details.characters[0]"
+               {:filter-expr     "size(#d.characters) < :cnt"
+                :proj-expr       "#y, details.characters[0]"
                 :expr-attr-names {"#y" "year"
                                   "#d" "details"}
                 :expr-attr-vals  {":cnt" 4}}))
@@ -1065,9 +1065,9 @@
    _         (doall (map #(far/put-item *client-opts* temp-table %) items))
    scanned   (far/scan *client-opts* temp-table {:attr-conds {:year [:ge 2005]}
                                                  :index      "year-index"})
-   projected (far/scan *client-opts* temp-table {:projection "genre, artist"
-                                                 :index      "genre-index"})
-   with-name (far/scan *client-opts* temp-table {:projection      "genre, #y"
+   projected (far/scan *client-opts* temp-table {:proj-expr "genre, artist"
+                                                 :index     "genre-index"})
+   with-name (far/scan *client-opts* temp-table {:proj-expr       "genre, #y"
                                                  :index           "year-index"
                                                  :expr-attr-names {"#y" "year"}})
    ]
