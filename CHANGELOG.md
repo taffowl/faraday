@@ -6,8 +6,9 @@
 > **Please report any problems / unexpected breakages**.
 > Big thanks to @ricardojmendez for most of the work for this release!
 
-* **BREAKING**: `update-item` args have changed (`:update-map` is now optional) [@ricardojmendez] **[1]**
-* **BREAKING**: `batch-get-item`, `batch-write-item` now treat lists/vecs as literals [#63] **[2]**
+* **BREAKING**: `batch-get-item`, `batch-write-item` now treat lists/vecs as literals [#63] **[1]**
+* **BREAKING**: `update-item` args have changed (`:update-map` is now optional) [@ricardojmendez] **[2]**
+* **BREAKING**: `update-table` args have changed (`:throughput` is now optional) [@ricardojmendez] **[3]**
 * **New**: `put-item`, `update-item` support for expressions [@leonardoborges #73]
 * **New**: `get-item` support for `:proj-expr`, `:expr-names` [@ricardojmendez]
 * **New**: `query` support for `:filter-expr`, `:proj-expr` [@ricardojmendez]
@@ -24,10 +25,11 @@
 
 #### MIGRATION INSTRUCTIONS
 
-**[1]**: `(update-item <client-opts> <table> <prim-kvs> <update-map> <opts>)` -> `(update-item <client-opts> <table> <prim-kvs> {:update-map <update-map> <other-opts>})`
+**[1]**: Please see [#63] for details
 
-**[2]**: Please see [#63] for details
+**[2]**: `(update-item <client-opts> <table> <prim-kvs> <update-map> <opts>)` -> `(update-item <client-opts> <table> <prim-kvs> {:update-map <update-map> <other-opts>})`
 
+**[3]**: `(update-table <client-opts> <table> <throughput> <opts>)` -> `(update-table <client-opts> <table> {:through-put <throughput> <other-opts>})`
 
 ## v1.8.0 / 2015 September 26
 
