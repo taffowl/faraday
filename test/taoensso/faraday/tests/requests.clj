@@ -34,6 +34,8 @@
             ComparisonOperator
             Select]))
 
+;;;; Private var aliases
+
 (def describe-table-request   #'taoensso.faraday/describe-table-request)
 (def create-table-request     #'taoensso.faraday/create-table-request)
 (def update-table-request     #'taoensso.faraday/update-table-request)
@@ -47,6 +49,8 @@
 (def attr-multi-vs            #'taoensso.faraday/attr-multi-vs)
 (def query-request            #'taoensso.faraday/query-request)
 (def write-request            #'taoensso.faraday/write-request)
+
+;;;;
 
 (expect "describe-table-name"
   (.getTableName ^DescribeTableRequest

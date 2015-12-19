@@ -1,16 +1,21 @@
 (ns taoensso.faraday.tests.main
-  (:require [expectations     :as test :refer :all]
-            [taoensso.encore  :as encore]
-            [taoensso.faraday :as far]
-            [taoensso.nippy   :as nippy])
-  (:import [com.amazonaws.auth BasicAWSCredentials]
-           [com.amazonaws.internal StaticCredentialsProvider]
-           [com.amazonaws.services.dynamodbv2.model ConditionalCheckFailedException]
-           (com.amazonaws AmazonServiceException)))
+  (:require
+   [expectations     :as test :refer :all]
+   [taoensso.encore  :as encore]
+   [taoensso.faraday :as far]
+   [taoensso.nippy   :as nippy])
 
-;; TODO LOTS of tests still outstanding, PRs very, very welcome!!
+  (:import
+   [com.amazonaws.auth BasicAWSCredentials]
+   [com.amazonaws.internal StaticCredentialsProvider]
+   [com.amazonaws.services.dynamodbv2.model ConditionalCheckFailedException]
+   [com.amazonaws AmazonServiceException]))
 
 (comment (test/run-tests '[taoensso.faraday.tests.main]))
+
+;;;; Private var aliases
+
+(def index-status-watch #'taoensso.faraday/index-status-watch)
 
 ;;;; Config & setup
 
@@ -19,34 +24,37 @@
    :secret-key (get (System/getenv) "AWS_DYNAMODB_SECRET_KEY")
    :endpoint   (get (System/getenv) "AWS_DYNAMODB_ENDPOINT")})
 
-(def ttable :faraday.tests.main)
+(def ttable      :faraday.tests.main)
 (def range-table :faraday.tests.range)
-(def book-table :faraday.tests.books)
-
+(def book-table  :faraday.tests.books)
 
 (def run-after-setup (atom #{}))
-
-(defn- after-setup! [thunk]
-  (swap! run-after-setup conj thunk))
+(defn- after-setup! [thunk] (swap! run-after-setup conj thunk))
 
 (defn- before-run {:expectations-options :before-run} []
   (assert (and (:access-key *client-opts*)
                (:secret-key *client-opts*)))
+
   (println "Setting up testing environment...")
-  (far/ensure-table *client-opts* ttable [:id :n]
-                    {:throughput  {:read 1 :write 1}
-                     :block?      true})
-  (far/ensure-table *client-opts* range-table [:title :s]
-                    {:range-keydef [:number :n]
-                     :throughput   {:read 1 :write 1}
-                     :block?       true})
+
+  (far/ensure-table *client-opts* ttable
+    [:id :n]
+    {:throughput  {:read 1 :write 1}
+     :block?      true})
+
+  (far/ensure-table *client-opts* range-table
+    [:title :s]
+    {:range-keydef [:number :n]
+     :throughput   {:read 1 :write 1}
+     :block?       true})
+
   (far/ensure-table *client-opts* book-table
-                    [:author :s]
-                    {:range-keydef [:name :s]
-                     :throughput   {:read 1 :write 1}
-                     :block?       true})
-  (doseq [thunk @run-after-setup]
-    (thunk))
+    [:author :s]
+    {:range-keydef [:name :s]
+     :throughput   {:read 1 :write 1}
+     :block?       true})
+
+  (doseq [thunk @run-after-setup] (thunk))
 
   (println "Ready to roll..."))
 
@@ -940,7 +948,7 @@
                                            :throughput  {:read 4 :write 2}
                                            }})
    ;; We need to wait until the index is created before updating it, or the call will fail
-   _       @(far/index-status-watch *client-opts* temp-table :gsindexes "genre-index")
+   _       @(index-status-watch *client-opts* temp-table :gsindexes "genre-index")
    inc-idx @(far/update-table *client-opts* temp-table
                               {:gsindexes {:operation   :update
                                            :name        "genre-index"
@@ -956,12 +964,12 @@
    ;; Let's wait until amount-index is created before deleting genre-index,
    ;; so that we can consistently evaluate the result (otherwise we might not
    ;; know if size/item-count are 0 or nil.
-   _       @(far/index-status-watch *client-opts* temp-table :gsindexes "amount-index")
+   _       @(index-status-watch *client-opts* temp-table :gsindexes "amount-index")
    del-idx @(far/update-table *client-opts* temp-table
                               {:gsindexes {:operation   :delete
                                            :name        "genre-index"
                                            }})
-   _       @(far/index-status-watch *client-opts* temp-table :gsindexes "genre-index")
+   _       @(index-status-watch *client-opts* temp-table :gsindexes "genre-index")
    ;; And get the final state
    fin-idx (far/describe-table *client-opts* temp-table)
    ]
