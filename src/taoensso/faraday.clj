@@ -434,7 +434,7 @@
           (do (Thread/sleep poll-ms)
               (recur)))))))
 
-(defn index-status-watch
+(defn- index-status-watch
   "Returns a future to poll for index status.
   `index-type` - e/o #{:gsindexes :lsindexes} (currently only supports :gsindexes)"
   [client-opts table index-type index-name & [{:keys [poll-ms]
