@@ -306,7 +306,8 @@
          :numset #{4 12 6 13}
          :strset #{"a" "b" "c"}
          :map {:k1 "v1" :k2 "v2" :k3 "v3"}
-         :vec ["a" 1 false nil]}
+         :vec ["a" 1 false nil]
+         :date "monkey fish"}
       take-care-of-map-keys {:id 15
                              :map {:key "val" "key" 5}}]
 
@@ -359,10 +360,20 @@
    (update-t
     {:update-map {:boolT [:put nil]}}))
 
+  (extend-protocol far/CljVal->DbVal java.util.Date
+    (serialise [x]
+      (far/serialise (str x))))
+
+  (expect
+    (assoc t :date "Thu Jan 01 01:00:00 GMT 1970")
+    (update-t
+      {:update-map {:date [:put (java.util.Date. (long 0))]}}))
+
   (expect
    (assoc-in t [:map-new :new] "x")
    (update-t
     {:update-map {:map-new [:put {:new "x"}]}})))
+
 
 ;;;; expectation tests
 (let [t {:id 16
